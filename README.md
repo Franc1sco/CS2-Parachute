@@ -2,7 +2,7 @@
 
 Parachute function when you keep pressed E on the air. 
 
-### Requirments
+### Requirements
 [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/)
 
 ### Installation
