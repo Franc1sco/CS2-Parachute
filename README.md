@@ -1,6 +1,6 @@
 # CS2-Parachute
 
-Simple Parachute function when you keep pressed E button.
+Parachute function when you keep pressed E on the air. 
 
 ### Requirments
 [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/)
