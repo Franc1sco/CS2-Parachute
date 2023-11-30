@@ -7,7 +7,7 @@ Simple Parachute function when you keep pressed E button.
 
 ### Installation
 
-Drag and drop from released to game/csgo/addons/counterstrikesharp/plugins
+Drag and drop from [releases](https://github.com/Franc1sco/CS2-Parachute/releases) to game/csgo/addons/counterstrikesharp/plugins
 
 ### Configuration
 
