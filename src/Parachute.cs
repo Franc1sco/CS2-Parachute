@@ -11,7 +11,7 @@ public class Parachute : BasePlugin
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "0.0.1";
+    public override string ModuleVersion => "0.0.2";
 
     private List<CCSPlayerController> connectedPlayers = new List<CCSPlayerController>();
     private readonly Dictionary<CCSPlayerController, bool> bUsingPara = new();
@@ -47,6 +47,7 @@ public class Parachute : BasePlugin
                 return HookResult.Continue;
 
             } else {
+                bUsingPara[player] = false;
                 connectedPlayers.Add(player);
                 return HookResult.Continue;
             }
@@ -62,6 +63,10 @@ public class Parachute : BasePlugin
 
             } else {
                 connectedPlayers.Remove(player);
+                if (bUsingPara.ContainsKey(player))
+                {
+                    bUsingPara.Remove(player);
+                }
                 return HookResult.Continue;
             }
         });
@@ -73,7 +78,7 @@ public class Parachute : BasePlugin
                 if (player.IsValid && !player.IsBot && player.PawnIsAlive)
                 {
                     var buttons = player.Buttons;
-                    if ((buttons & PlayerButtons.Use) != 0)
+                    if ((buttons & PlayerButtons.Use) != 0 && !player.PlayerPawn.Value.OnGroundLastTick)
                     {
                         bUsingPara[player] = true;
                         StartPara(player);
