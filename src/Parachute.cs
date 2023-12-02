@@ -1,29 +1,35 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
-using System.Text.Json;
+using CounterStrikeSharp.API.Modules.Admin;
+using System.Text.Json.Serialization;
 
 namespace Parachute;
 
+public class ConfigGen : BasePluginConfig
+{
+    [JsonPropertyName("Enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("DecreaseVec")] public float DecreaseVec { get; set; } = 50;
+    [JsonPropertyName("Linear")] public bool Linear { get; set; } = true;
+    [JsonPropertyName("FallSpeed")] public float FallSpeed { get; set; } = 100;
+    [JsonPropertyName("AccessFlag")] public string AccessFlag { get; set; } = "@css/vip";
+}
 
 [MinimumApiVersion(43)]
-public class Parachute : BasePlugin
+public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "0.0.2";
+    public override string ModuleVersion => "0.1.0";
+    public ConfigGen Config { get; set; } = null!;
+    public void OnConfigParsed(ConfigGen config) { Config = config; }
 
     private List<CCSPlayerController> connectedPlayers = new List<CCSPlayerController>();
     private readonly Dictionary<CCSPlayerController, bool> bUsingPara = new();
 
-
-    public static ConfigOptions? _configs = new();
-
     public override void Load(bool hotReload)
     {
-        LoadConfigs();
-
-        if (!_configs!.Enabled)
+        if (!Config.Enabled)
         {
             Console.WriteLine("[Parachute] Plugin not enabled!");
             return;
@@ -35,6 +41,7 @@ public class Parachute : BasePlugin
             {
                 connectedPlayers.Add(controller);
                 bUsingPara[controller] = false;
+                bUsingPara.Add(controller, false);
             });
         }
 
@@ -47,7 +54,7 @@ public class Parachute : BasePlugin
                 return HookResult.Continue;
 
             } else {
-                bUsingPara[player] = false;
+                bUsingPara.Add(player, false);
                 connectedPlayers.Add(player);
                 return HookResult.Continue;
             }
@@ -75,7 +82,7 @@ public class Parachute : BasePlugin
         {
             foreach (var player in connectedPlayers)
             {
-                if (player.IsValid && !player.IsBot && player.PawnIsAlive)
+                if (player.IsValid && !player.IsBot && player.PawnIsAlive && (Config.AccessFlag == "" || AdminManager.PlayerHasPermissions(player, Config.AccessFlag)))
                 {
                     var buttons = player.Buttons;
                     if ((buttons & PlayerButtons.Use) != 0 && !player.PlayerPawn.Value.OnGroundLastTick)
@@ -105,51 +112,28 @@ public class Parachute : BasePlugin
 
     private void StartPara(CCSPlayerController player)
     {
-        player.GravityScale = 0.1f;
+        var fallspeed = Config.FallSpeed * (-1.0f);
+        var isFallSpeed = false;
         var velocity = player.PlayerPawn.Value.AbsVelocity;
-
-        if (velocity.Z >= 0.0f) { 
-            return; 
-        }
-        velocity.Z = velocity.Z + (float)_configs!.DecreaseVec;
-        var position = player.PlayerPawn.Value.AbsOrigin!;
-        var angle = player.PlayerPawn.Value.AbsRotation!;
-        player.Teleport(position, angle, velocity);
-    }
-
-    private void LoadConfigs()
-    {
-        string path = Path.Join(ModuleDirectory, "parachute.json");
-        _configs = !File.Exists(path) ? CreateConfig(path, LoadConfig) : JsonSerializer.Deserialize<ConfigOptions>(File.ReadAllText(path));
-    }
-
-    private static T CreateConfig<T>(string path, Func<T> dataLoader)
-    {
-        var data = dataLoader();
-        File.WriteAllText(path, JsonSerializer.Serialize(data,
-            new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            }));
-
-        return data;
-    }
-
-    private ConfigOptions LoadConfig()
-    {
-        return new ConfigOptions
+        if (velocity.Z >= fallspeed)
         {
-            Enabled = true,
-            DecreaseVec = (float)10.0,
-     
-        };
-    }
+            isFallSpeed = true;
+        }
 
-    public class ConfigOptions
-    {
-        public bool Enabled { get; init; }
-        public float DecreaseVec { get; init; }
+        if (velocity.Z < 0.0f)
+        {
+            if (isFallSpeed && Config.Linear || Config.DecreaseVec == 0.0) {
+                velocity.Z = fallspeed;
+
+            } else {
+                velocity.Z = velocity.Z + Config.DecreaseVec;
+            }
+
+            var position = player.PlayerPawn.Value.AbsOrigin!;
+            var angle = player.PlayerPawn.Value.AbsRotation!;
+            player.Teleport(position, angle, velocity);
+            player.GravityScale = 0.1f;
+        }
     }
 }
 

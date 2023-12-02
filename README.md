@@ -11,11 +11,15 @@ Drag and drop from [releases](https://github.com/Franc1sco/CS2-Parachute/release
 
 ### Configuration
 
-Configure the file parachute.json generated on the plugin directory.
+Configure the file parachute.json generated on addons/counterstrikesharp/configs/plugins/Parachute
 ```json
 {
   "Enabled": true,
-  "DecreaseVec": 10
+  "DecreaseVec": 50,
+  "Linear": true,
+  "FallSpeed": 100,
+  "AccessFlag": "@css/vip",
+  "ConfigVersion": 1
 }
 ```
 
