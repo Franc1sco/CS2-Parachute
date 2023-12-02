@@ -22,6 +22,11 @@ Configure the file parachute.json generated on addons/counterstrikesharp/configs
   "ConfigVersion": 1
 }
 ```
+* Enable - Enable or disable the plugin.
+* DecreaseVec - 0: dont use Realistic velocity-decrease - x: sets the velocity-decrease.
+* Linear - 0: disables linear fallspeed - 1: enables it
+* FallSpeed - speed of the fall when you use the parachute
+* AccessFlag - access required for can use parachuse, leave blank "" for public access.
 
 ### TODO
 
