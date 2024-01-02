@@ -12,7 +12,8 @@ public class ConfigGen : BasePluginConfig
     [JsonPropertyName("DecreaseVec")] public float DecreaseVec { get; set; } = 50;
     [JsonPropertyName("Linear")] public bool Linear { get; set; } = true;
     [JsonPropertyName("FallSpeed")] public float FallSpeed { get; set; } = 100;
-    [JsonPropertyName("AccessFlag")] public string AccessFlag { get; set; } = "@css/vip";
+    [JsonPropertyName("AccessFlag")] public string AccessFlag { get; set; } = "";
+    [JsonPropertyName("TeleportTicks")] public int TeleportTicks { get; set; } = 300;
 }
 
 [MinimumApiVersion(43)]
@@ -20,12 +21,12 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "0.1.0";
+    public override string ModuleVersion => "1.2";
     public ConfigGen Config { get; set; } = null!;
     public void OnConfigParsed(ConfigGen config) { Config = config; }
 
-    private List<CCSPlayerController> connectedPlayers = new List<CCSPlayerController>();
-    private readonly Dictionary<CCSPlayerController, bool> bUsingPara = new();
+    private readonly Dictionary<int?, bool> bUsingPara = new();
+    private readonly Dictionary<int?, int> gParaTicks = new();
 
     public override void Load(bool hotReload)
     {
@@ -37,13 +38,14 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 
         if (hotReload)
         {
-            Utilities.GetPlayers().ForEach(controller =>
+            Utilities.GetPlayers().ForEach(player =>
             {
-                connectedPlayers.Add(controller);
-                bUsingPara[controller] = false;
-                bUsingPara.Add(controller, false);
+                bUsingPara.Add(player.UserId, false);
+                gParaTicks.Add(player.UserId, 0);
             });
         }
+
+        //AddTimer(0.0f, TimerParachute, TimerFlags.REPEAT);
 
         RegisterEventHandler<EventPlayerConnectFull>((@event, info) =>
         {
@@ -54,8 +56,8 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 return HookResult.Continue;
 
             } else {
-                bUsingPara.Add(player, false);
-                connectedPlayers.Add(player);
+                bUsingPara.Add(player.UserId, false);
+                gParaTicks.Add(player.UserId, 0);
                 return HookResult.Continue;
             }
         });
@@ -69,29 +71,38 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 return HookResult.Continue;
 
             } else {
-                connectedPlayers.Remove(player);
-                if (bUsingPara.ContainsKey(player))
+                if (bUsingPara.ContainsKey(player.UserId))
                 {
-                    bUsingPara.Remove(player);
+                    bUsingPara.Remove(player.UserId);
+                }
+                if (gParaTicks.ContainsKey(player.UserId))
+                {
+                    gParaTicks.Remove(player.UserId);
                 }
                 return HookResult.Continue;
             }
         });
 
+        
         RegisterListener<Listeners.OnTick>(() =>
         {
-            foreach (var player in connectedPlayers)
+            var players = Utilities.GetPlayers();
+
+            foreach (var player in players)
             {
-                if (player.IsValid && !player.IsBot && player.PawnIsAlive && (Config.AccessFlag == "" || AdminManager.PlayerHasPermissions(player, Config.AccessFlag)))
+                if (player != null 
+                && player.IsValid 
+                && !player.IsBot 
+                && player.PawnIsAlive 
+                && (Config.AccessFlag == "" || AdminManager.PlayerHasPermissions(player, Config.AccessFlag)))
                 {
                     var buttons = player.Buttons;
                     if ((buttons & PlayerButtons.Use) != 0 && !player.PlayerPawn.Value.OnGroundLastTick)
                     {
-                        bUsingPara[player] = true;
                         StartPara(player);
 
-                    } else if (bUsingPara[player]){
-                        bUsingPara[player] = false;
+                    } else if (bUsingPara[player.UserId]){
+                        bUsingPara[player.UserId] = false;
                         StopPara(player);
                     }
                 }
@@ -99,19 +110,20 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
         });
     }
 
-    public override void Unload(bool hotReload)
-    {
-        connectedPlayers.Clear();
-        bUsingPara.Clear();
-    }
-
     private void StopPara(CCSPlayerController player)
     {
         player.GravityScale = 1.0f;
+        gParaTicks[player.UserId] = 0;
     }
 
     private void StartPara(CCSPlayerController player)
     {
+        if (!bUsingPara[player.UserId])
+        {
+            bUsingPara[player.UserId] = true;
+            player.GravityScale = 0.1f;
+        }
+
         var fallspeed = Config.FallSpeed * (-1.0f);
         var isFallSpeed = false;
         var velocity = player.PlayerPawn.Value.AbsVelocity;
@@ -131,8 +143,14 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 
             var position = player.PlayerPawn.Value.AbsOrigin!;
             var angle = player.PlayerPawn.Value.AbsRotation!;
-            player.Teleport(position, angle, velocity);
-            player.GravityScale = 0.1f;
+
+            if (gParaTicks[player.UserId] > Config.TeleportTicks)
+            {
+                player.Teleport(position, angle, velocity);
+                gParaTicks[player.UserId] = 0;
+            }
+
+            ++gParaTicks[player.UserId];
         }
     }
 }
