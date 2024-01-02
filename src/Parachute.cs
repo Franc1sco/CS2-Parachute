@@ -64,7 +64,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
         {
             var player = @event.Userid;
 
-            if (player.IsBot || !player.IsValid)
+            if (player == null || player.IsBot || !player.IsValid)
             {
                 return HookResult.Continue;
 
