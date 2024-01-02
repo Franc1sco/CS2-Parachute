@@ -2,6 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Entities.Constants;
 using System.Text.Json.Serialization;
 
 namespace Parachute;
@@ -14,19 +15,21 @@ public class ConfigGen : BasePluginConfig
     [JsonPropertyName("FallSpeed")] public float FallSpeed { get; set; } = 100;
     [JsonPropertyName("AccessFlag")] public string AccessFlag { get; set; } = "";
     [JsonPropertyName("TeleportTicks")] public int TeleportTicks { get; set; } = 300;
+    [JsonPropertyName("ParachuteModelEnabled")] public bool ParachuteModelEnabled { get; set; } = false;
 }
 
-[MinimumApiVersion(43)]
+[MinimumApiVersion(139)]
 public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "1.2";
+    public override string ModuleVersion => "1.3";
     public ConfigGen Config { get; set; } = null!;
     public void OnConfigParsed(ConfigGen config) { Config = config; }
 
     private readonly Dictionary<int?, bool> bUsingPara = new();
     private readonly Dictionary<int?, int> gParaTicks = new();
+    private readonly Dictionary<int?, CBaseEntity?> gParaModel = new();
 
     public override void Load(bool hotReload)
     {
@@ -42,10 +45,9 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
             {
                 bUsingPara.Add(player.UserId, false);
                 gParaTicks.Add(player.UserId, 0);
+                gParaModel.Add(player.UserId, null);
             });
         }
-
-        //AddTimer(0.0f, TimerParachute, TimerFlags.REPEAT);
 
         RegisterEventHandler<EventPlayerConnectFull>((@event, info) =>
         {
@@ -55,9 +57,12 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
             {
                 return HookResult.Continue;
 
-            } else {
+            }
+            else
+            {
                 bUsingPara.Add(player.UserId, false);
                 gParaTicks.Add(player.UserId, 0);
+                gParaModel.Add(player.UserId, null);
                 return HookResult.Continue;
             }
         });
@@ -70,7 +75,9 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
             {
                 return HookResult.Continue;
 
-            } else {
+            }
+            else
+            {
                 if (bUsingPara.ContainsKey(player.UserId))
                 {
                     bUsingPara.Remove(player.UserId);
@@ -79,21 +86,25 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 {
                     gParaTicks.Remove(player.UserId);
                 }
+                if (gParaModel.ContainsKey(player.UserId))
+                {
+                    gParaModel.Remove(player.UserId);
+                }
                 return HookResult.Continue;
             }
         });
 
-        
+
         RegisterListener<Listeners.OnTick>(() =>
         {
             var players = Utilities.GetPlayers();
 
             foreach (var player in players)
             {
-                if (player != null 
-                && player.IsValid 
-                && !player.IsBot 
-                && player.PawnIsAlive 
+                if (player != null
+                && player.IsValid
+                && !player.IsBot
+                && player.PawnIsAlive
                 && (Config.AccessFlag == "" || AdminManager.PlayerHasPermissions(player, Config.AccessFlag)))
                 {
                     var buttons = player.Buttons;
@@ -101,7 +112,9 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                     {
                         StartPara(player);
 
-                    } else if (bUsingPara[player.UserId]){
+                    } 
+                    else if (bUsingPara[player.UserId])
+                    {
                         bUsingPara[player.UserId] = false;
                         StopPara(player);
                     }
@@ -114,6 +127,11 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
     {
         player.GravityScale = 1.0f;
         gParaTicks[player.UserId] = 0;
+        if (gParaModel[player.UserId] != null && gParaModel[player.UserId].IsValid)
+        {
+            gParaModel[player.UserId].Remove();
+            gParaModel[player.UserId] = null;
+        }
     }
 
     private void StartPara(CCSPlayerController player)
@@ -122,6 +140,20 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
         {
             bUsingPara[player.UserId] = true;
             player.GravityScale = 0.1f;
+            if (Config.ParachuteModelEnabled)
+            {
+                var entity = Utilities.CreateEntityByName<CBaseProp>("prop_dynamic_override");
+                if (entity != null && entity.IsValid)
+                {
+                    entity.SetModel("models/props_survival/parachute/chute.vmdl");
+                    entity.MoveType = MoveType_t.MOVETYPE_NOCLIP;
+                    entity.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NONE;
+                    entity.Collision.CollisionAttribute.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NONE;
+                    entity.DispatchSpawn();
+
+                    gParaModel[player.UserId] = entity;
+                }
+            }
         }
 
         var fallspeed = Config.FallSpeed * (-1.0f);
@@ -134,10 +166,13 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 
         if (velocity.Z < 0.0f)
         {
-            if (isFallSpeed && Config.Linear || Config.DecreaseVec == 0.0) {
+            if (isFallSpeed && Config.Linear || Config.DecreaseVec == 0.0)
+            {
                 velocity.Z = fallspeed;
 
-            } else {
+            }
+            else
+            {
                 velocity.Z = velocity.Z + Config.DecreaseVec;
             }
 
@@ -148,6 +183,11 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
             {
                 player.Teleport(position, angle, velocity);
                 gParaTicks[player.UserId] = 0;
+            }
+
+            if (gParaModel[player.UserId] != null && gParaModel[player.UserId].IsValid)
+            {
+                gParaModel[player.UserId].Teleport(position, angle, velocity);
             }
 
             ++gParaTicks[player.UserId];
