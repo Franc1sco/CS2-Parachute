@@ -2,6 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
 using System.Text.Json.Serialization;
 
@@ -16,6 +17,7 @@ public class ConfigGen : BasePluginConfig
     [JsonPropertyName("AccessFlag")] public string AccessFlag { get; set; } = "";
     [JsonPropertyName("TeleportTicks")] public int TeleportTicks { get; set; } = 300;
     [JsonPropertyName("ParachuteModelEnabled")] public bool ParachuteModelEnabled { get; set; } = false;
+    [JsonPropertyName("ParachuteModel")] public string ParachuteModel { get; set; } = "models/props_survival/parachute/chute.vmdl";
 }
 
 [MinimumApiVersion(139)]
@@ -23,7 +25,9 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "1.3";
+    public override string ModuleVersion => "1.4";
+
+
     public ConfigGen Config { get; set; } = null!;
     public void OnConfigParsed(ConfigGen config) { Config = config; }
 
@@ -46,6 +50,14 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 bUsingPara.Add(player.UserId, false);
                 gParaTicks.Add(player.UserId, 0);
                 gParaModel.Add(player.UserId, null);
+            });
+        }
+
+        if (Config.ParachuteModelEnabled)
+        {
+            RegisterListener<Listeners.OnMapStart>(map =>
+            {
+                Server.PrecacheModel(Config.ParachuteModel);
             });
         }
 
@@ -121,6 +133,19 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 }
             }
         });
+
+        RegisterEventHandler<EventPlayerDeath>((@event, info) =>
+        {
+            var player = @event.Userid;
+
+            if (bUsingPara[player.UserId])
+            {
+                bUsingPara[player.UserId] = false;
+                StopPara(player);
+            }
+            return HookResult.Continue;
+        }, HookMode.Pre);
+
     }
 
     private void StopPara(CCSPlayerController player)
@@ -145,7 +170,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 var entity = Utilities.CreateEntityByName<CBaseProp>("prop_dynamic_override");
                 if (entity != null && entity.IsValid)
                 {
-                    entity.SetModel("models/props_survival/parachute/chute.vmdl");
+                    entity.SetModel(Config.ParachuteModel);
                     entity.MoveType = MoveType_t.MOVETYPE_NOCLIP;
                     entity.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NONE;
                     entity.Collision.CollisionAttribute.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NONE;
