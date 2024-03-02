@@ -47,6 +47,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
         {
             Utilities.GetPlayers().ForEach(player =>
             {
+                if (player.IsBot || !player.IsValid) return;
                 bUsingPara.Add(player.UserId, false);
                 gParaTicks.Add(player.UserId, 0);
                 gParaModel.Add(player.UserId, null);
@@ -138,7 +139,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
         {
             var player = @event.Userid;
 
-            if (bUsingPara[player.UserId])
+            if (bUsingPara.ContainsKey(player.UserId) && bUsingPara[player.UserId])
             {
                 bUsingPara[player.UserId] = false;
                 StopPara(player);
