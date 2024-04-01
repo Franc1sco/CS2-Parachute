@@ -24,7 +24,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "1.5";
+    public override string ModuleVersion => "1.5.1";
 
 
     public ConfigGen Config { get; set; } = null!;
@@ -120,7 +120,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 && (Config.AccessFlag == "" || AdminManager.PlayerHasPermissions(player, Config.AccessFlag)))
                 {
                     var buttons = player.Buttons;
-                    if ((buttons & PlayerButtons.Use) != 0 && player.PlayerPawn?.Value?.OnGroundLastTick == false)
+                    if ((buttons & PlayerButtons.Use) != 0 && !player.PlayerPawn.Value!.OnGroundLastTick)
                     {
                         StartPara(player);
 
