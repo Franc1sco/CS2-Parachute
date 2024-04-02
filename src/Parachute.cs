@@ -24,7 +24,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
 {
     public override string ModuleName => "CS2 Parachute";
     public override string ModuleAuthor => "Franc1sco Franug";
-    public override string ModuleVersion => "1.5.1";
+    public override string ModuleVersion => "1.5.2";
 
 
     public ConfigGen Config { get; set; } = null!;
@@ -144,7 +144,7 @@ public class Parachute : BasePlugin, IPluginConfig<ConfigGen>
                 StopPara(player);
             }
             return HookResult.Continue;
-        }, HookMode.Pre);
+        });
 
     }
 
