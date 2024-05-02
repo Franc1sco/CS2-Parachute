@@ -1,2 +1,4 @@
 obj
 .vs
+src/bin
+*.sln
